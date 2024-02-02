@@ -4,7 +4,7 @@ use std::os::windows::io::{AsRawHandle, RawHandle};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use winapi::shared::minwindef::{BOOL, HKEY};
+use winapi::shared::minwindef::{BOOL, HKEY, TRUE, DWORD, FALSE};
 use winapi::shared::winerror;
 use winapi::um::{commapi, fileapi, handleapi, ioapiset, minwinbase, synchapi, winbase, winnt, winreg};
 
@@ -46,6 +46,21 @@ impl SerialPort {
 			timeouts.WriteTotalTimeoutMultiplier = 0;
 			timeouts.WriteTotalTimeoutConstant = super::DEFAULT_TIMEOUT_MS;
 			check_bool(commapi::SetCommTimeouts(file.as_raw_handle(), &mut timeouts))?;
+
+			let mut dcb: winbase::DCB = std::mem::zeroed();
+			check_bool(commapi::GetCommState(file.as_raw_handle(), &mut dcb))?;
+			dcb.XonChar = 17;
+			dcb.XoffChar = 19;
+			dcb.ErrorChar = '\0' as winapi::ctypes::c_char;
+			dcb.EofChar = 26;
+			dcb.set_fBinary(TRUE as DWORD);
+			dcb.set_fOutxDsrFlow(FALSE as DWORD);
+			dcb.set_fDtrControl(winbase::DTR_CONTROL_DISABLE);
+			dcb.set_fDsrSensitivity(FALSE as DWORD);
+			dcb.set_fErrorChar(FALSE as DWORD);
+			dcb.set_fNull(FALSE as DWORD);
+			dcb.set_fAbortOnError(FALSE as DWORD);
+			check_bool(commapi::SetCommState(file.as_raw_handle(), &mut dcb))?;
 		}
 		Ok(Self::from_file(file))
 	}
